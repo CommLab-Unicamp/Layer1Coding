@@ -2,6 +2,10 @@ import numpy as np
 from pyldpc import make_ldpc, decode, get_message, encode, utils
 from matplotlib import pyplot as plt
 import math
+import pickle
+import os
+
+CACHE_FILE = 'ldpc_matrices_cache.pkl'
 
 def string_to_numpy_bitarray(s):
     """
@@ -42,18 +46,36 @@ def add_noise(x, snr_db, seed=None):
 def initialize_matrices():
     """
     Inicializa as matrizes do decodificador e retorna.
+    Verifica se as matrizes já estão em cache e as carrega.
     """
     n = 4 * 8 * 140
     d_v = 3
     d_c = 4
-    seed = np.random.RandomState(42)
     
+    # Verifica se o cache já existe
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, 'rb') as cache_file:
+            cached_data = pickle.load(cache_file)
+            cached_n, cached_d_v, cached_d_c, H, G = cached_data
+            # Se os parâmetros não mudaram, retorna as matrizes em cache
+            if (n == cached_n) and (d_v == cached_d_v) and (d_c == cached_d_c):
+                print("Loaded matrices from cache.")
+                return H, G
+    
+    # Se não existir cache ou parâmetros mudaram, gera as matrizes
+    print("Generating new matrices...")
+    seed = np.random.RandomState(42)
     H, G = make_ldpc(n, d_v, d_c, seed=seed, systematic=True, sparse=True)
 
     n, k = G.shape
     print("Number of message bits:", k)
     print("Number of coded bits:", n)
     print(f"Code rate {k/n = }")
+
+    # Salva as matrizes e parâmetros no cache
+    with open(CACHE_FILE, 'wb') as cache_file:
+        pickle.dump((n, d_v, d_c, H, G), cache_file)
+        print("Matrices saved to cache.")
 
     return H, G
 
