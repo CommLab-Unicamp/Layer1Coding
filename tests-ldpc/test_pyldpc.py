@@ -1,6 +1,7 @@
 import numpy as np
 from pyldpc import make_ldpc, decode, get_message, encode, utils
 from matplotlib import pyplot as plt
+import math
 
 def string_to_numpy_bitarray(s):
     """
@@ -29,12 +30,12 @@ def modulate_bpsk(d):
     """
     return 1 - 2*d  # 0 -> 1, 1 -> -1
 
-def add_noise(x, snr, seed=None):
+def add_noise(x, snr_db, seed=None):
     """
     Adiciona ruído gaussiano à mensagem modulada.
     """
     rng = utils.check_random_state(seed)
-    sigma = 10 ** (-snr / 20)
+    sigma = 10 ** (-snr_db / 20)
     e = rng.randn(*x.shape) * sigma  # Ruído gaussiano
     return x + e
 
@@ -56,9 +57,9 @@ def initialize_matrices():
 
     return H, G
 
-def transmit_message(message, G, H, snr):
+def transmit_message(message, G, H, snr_db):
     """
-    Simula o envio de uma mensagem com um único SNR.
+    Simula o envio de uma mensagem com um único SNR (dB).
     A função converte a mensagem para bits, realiza a transmissão com modulação e decodificação,
     e retorna a string recebida após a decodificação, removendo os caracteres nulos no final.
     """
@@ -74,10 +75,10 @@ def transmit_message(message, G, H, snr):
     x = modulate_bpsk(d)
     
     # Adiciona ruído
-    y = add_noise(x, snr)
+    y = add_noise(x, snr_db)
     
     # Decodifica a mensagem
-    D = decode(H, y, snr)
+    D = decode(H, y, snr_db)
     x_decoded = get_message(G, D)
     
     # Converte os bits decodificados de volta para a string original
@@ -89,6 +90,10 @@ def transmit_message(message, G, H, snr):
     # Retorna a mensagem decodificada sem os zeros no final
     return decoded_message
 
+def variance_to_SNR_db(variance):
+    snr_db = 10 * math.log(1 / variance)
+    return snr_db
+
 if __name__ == "__main__":
     # Inicializa as matrizes H e G
     H, G = initialize_matrices()
@@ -97,6 +102,6 @@ if __name__ == "__main__":
     test_message = "Esta é uma mensagem de texto, que deve conter 140 caracteres. Pode não parecer, mas 140 caracteres é bastante coisa. Viu só? Enrolei mas foi"
     print(f"{len(test_message) = }")
 
-    for snr in [-3, -2, -1, 0, 1]:
-        received = transmit_message(test_message, G, H, snr)
-        print(f"{snr = }, {received = }")
+    for snrs_db in [-3, -2, -1, 0, 1]:
+        received = transmit_message(test_message, G, H, snrs_db)
+        print(f"{snrs_db = }, {received = }")
