@@ -79,19 +79,16 @@ def initialize_matrices():
 
     return H, G
 
-def transmit_message(message, G, H, snr_db):
+def transmit_bitarray(bitarray, G, H, snr_db):
     """
-    Simula o envio de uma mensagem com um único SNR (dB).
-    A função converte a mensagem para bits, realiza a transmissão com modulação e decodificação,
-    e retorna a string recebida após a decodificação, removendo os caracteres nulos no final.
+    Realiza a transmissão de um bit array.
+    Codifica, modula, adiciona ruído e decodifica o bit array, retornando o bit array decodificado.
     """
-    v = string_to_numpy_bitarray(message)
-    
     # Preenche com zeros até que a mensagem tenha 1122 bits
-    v = np.concatenate((v, np.zeros(1122 - len(v), dtype=int)))
+    bitarray = np.concatenate((bitarray, np.zeros(1122 - len(bitarray), dtype=int)))
     
     # Codifica a mensagem
-    d = encode_message(G, v)
+    d = encode_message(G, bitarray)
     
     # Modula utilizando BPSK
     x = modulate_bpsk(d)
@@ -103,21 +100,65 @@ def transmit_message(message, G, H, snr_db):
     D = decode(H, y, snr_db)
     x_decoded = get_message(G, D)
 
-    # Remove bits excedentes para que tenha no maximo 1120 bits no numpy bitarray, cortando os que sobrarem.
+    # Remove bits excedentes para que tenha no máximo 1120 bits
     x_decoded = x_decoded[:1120]
+    
+    # Retorna o bit array decodificado
+    return x_decoded
 
+def transmit_message(message, G, H, snr_db):
+    """
+    Simula o envio de uma mensagem com um único SNR (dB).
+    A função converte a mensagem para bits, chama `transmit_bitarray` para realizar a transmissão
+    e retorna a string recebida após a decodificação.
+    """
+    # Converte a mensagem para um bit array
+    v = string_to_numpy_bitarray(message)
+    
+    # Transmite o bit array
+    x_decoded = transmit_bitarray(v, G, H, snr_db)
+    
     # Converte os bits decodificados de volta para a string original
     decoded_message = numpy_bitarray_to_string(x_decoded)
     
     # Remove os caracteres nulos (zeros) no final da mensagem
     decoded_message = decoded_message.rstrip('\x00')
     
-    # Retorna a mensagem decodificada sem os zeros no final
+    # Retorna a mensagem decodificada
     return decoded_message
 
 def variance_to_SNR_db(variance):
     snr_db = 10 * math.log(1 / variance)
     return snr_db
+
+def estimate_bit_error_probability(G, H, binary_message, snr_db, max_trials):
+    """
+    Estima a probabilidade de erro de bit (BER) para um dado SNR e número fixo de testes.
+    A função realiza exatamente max_trials iterações, independentemente da estimativa de erro.
+    """
+    error_count_sum = 0  # Soma total de erros
+    k = len(binary_message)  # Número de bits na mensagem
+    count_trials = 0  # Contador de tentativas
+
+    while count_trials < max_trials:
+        # Transmite a mensagem com ruído e decodifica
+        x_decoded = transmit_bitarray(binary_message, G, H, snr_db)
+
+        # Calcula o número de bits diferentes (erros)
+        num_errors = np.sum(binary_message != x_decoded)
+        error_count_sum += num_errors
+
+        # Atualiza contadores
+        count_trials += 1
+
+        # Opcional: Exibir progresso
+        if count_trials % 10 == 0:
+            print(f"Iteração {count_trials}/{max_trials}: Total de erros acumulados = {error_count_sum}")
+
+    # Calcula a estimativa final de BER
+    estimate = error_count_sum / (count_trials * k)
+    return estimate
+
 
 if __name__ == "__main__":
     # Inicializa as matrizes H e G
@@ -125,8 +166,12 @@ if __name__ == "__main__":
 
     # Defina o SNR e a mensagem de teste
     test_message = "Esta é uma mensagem de texto, que deve conter 140 caracteres. Pode não parecer, mas 140 caracteres é bastante coisa. Viu só? Enrolei mas foi"
-    print(f"{len(test_message) = }")
+    
+    v = string_to_numpy_bitarray(test_message)
 
-    for snrs_db in [-3, -2, -1, 0, 1]:
-        received = transmit_message(test_message, G, H, snrs_db)
-        print(f"{snrs_db = }, {received = }")
+    print(f"Mensagem original: {test_message}")
+    print(f"Tamanho da mensagem em bits: {len(v)}")
+
+    for snr_db in [-1.4]:
+        pb = estimate_bit_error_probability(G, H, v, snr_db, 1000)
+        print(f"SNR = {snr_db}, Pb = {pb:.9e}")
