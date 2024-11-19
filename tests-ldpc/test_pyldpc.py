@@ -102,7 +102,10 @@ def transmit_message(message, G, H, snr_db):
     # Decodifica a mensagem
     D = decode(H, y, snr_db)
     x_decoded = get_message(G, D)
-    
+
+    # Remove bits excedentes para que tenha no maximo 1120 bits no numpy bitarray, cortando os que sobrarem.
+    x_decoded = x_decoded[:1120]
+
     # Converte os bits decodificados de volta para a string original
     decoded_message = numpy_bitarray_to_string(x_decoded)
     
