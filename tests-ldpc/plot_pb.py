@@ -20,7 +20,7 @@ def read_data(filename):
     return snr, pb
 
 # Lê os dados do arquivo
-filename = 'dados.txt'
+filename = 'dados_pb.txt'
 snr_db, pb = read_data(filename)
 
 # Variâncias para as linhas verticais

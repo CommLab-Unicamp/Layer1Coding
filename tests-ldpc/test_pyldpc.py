@@ -159,19 +159,44 @@ def estimate_bit_error_probability(G, H, binary_message, snr_db, max_trials):
     estimate = error_count_sum / (count_trials * k)
     return estimate
 
+def estimate_character_error_probability(G, H, message, snr_db, max_trials):
+    """
+    Estima a probabilidade de erro de caractere (CER) para um dado SNR e número fixo de testes.
+    """
+    char_error_count_sum = 0  # Soma total de caracteres errados
+    total_chars = len(message)  # Número de caracteres na mensagem original
+    count_trials = 0  # Contador de tentativas
+
+    while count_trials < max_trials:
+        # Transmite a mensagem e decodifica
+        received_message = transmit_message(message, G, H, snr_db)
+        
+        # Calcula o número de caracteres diferentes (erros)
+        num_char_errors = sum(1 for a, b in zip(message, received_message) if a != b)
+        char_error_count_sum += num_char_errors
+
+        # Atualiza contador de tentativas
+        count_trials += 1
+
+        # Opcional: Exibir progresso
+        if count_trials % 10 == 0:
+            print(f"Iteração {count_trials}/{max_trials}: Total de erros de caractere acumulados = {char_error_count_sum}")
+
+    # Calcula a estimativa final de CER
+    estimate = char_error_count_sum / (count_trials * total_chars)
+    return estimate
+
 
 if __name__ == "__main__":
     # Inicializa as matrizes H e G
     H, G = initialize_matrices()
 
-    # Defina o SNR e a mensagem de teste
+    # Define o SNR e a mensagem de teste
     test_message = "Esta é uma mensagem de texto, que deve conter 140 caracteres. Pode não parecer, mas 140 caracteres é bastante coisa. Viu só? Enrolei mas foi"
-    
-    v = string_to_numpy_bitarray(test_message)
 
     print(f"Mensagem original: {test_message}")
-    print(f"Tamanho da mensagem em bits: {len(v)}")
+    print(f"Tamanho da mensagem em caracteres: {len(test_message)}")
 
-    for snr_db in [-1.4]:
-        pb = estimate_bit_error_probability(G, H, v, snr_db, 1000)
-        print(f"SNR = {snr_db}, Pb = {pb:.9e}")
+    for snr_db in [-4, -3.5, -3, -2.5, -2.15, -2, -1.8, -1.6, -1.4, -1.2, -1.1, -1, 0]:
+        pc = estimate_character_error_probability(G, H, test_message, snr_db, 100)
+        print(f"SNR = {snr_db}, Pc = {pc:.9e}")
